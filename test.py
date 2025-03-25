@@ -30,7 +30,7 @@ SIZE_Y = 600
 pygame.init()
 
 screen = pygame.display.set_mode((SIZE_X, SIZE_Y))
-pygame.display.set_caption('Pygame Physics Simulation')
+pygame.display.set_caption('Terc')
 
 cross_img = pygame.image.load('cross.png')
 terc_img = pygame.image.load('terc.png')
@@ -90,20 +90,20 @@ font = pygame.font.Font(None, 26)
 font_input = pygame.font.Font(None, 36)
 font_hint = pygame.font.Font(None, 16)
 
-start_text = font.render("Start", True, (255, 255, 255))
-reset_text = font.render("Reset", True, (255, 255, 255))
-scoreboard_text = font.render("Scoreboard", True, (255, 255, 255))
-wind_up_text = font.render("Wind Up", True, (255, 255, 255))
-wind_down_text = font.render("Wind Down", True, (255, 255, 255))
-physics_up_text = font.render("Physics Up", True, (255, 255, 255))
-physics_down_text = font.render("Physics Down", True, (255, 255, 255))
-save_text = font.render("Save", True, (255, 255, 255))
-ok_text = font.render("OK", True, (255, 255, 255))
-cancel_text = font.render("Cancel", True, (255, 255, 255))
-wind_direction_text = font.render(wind_direction, True, (0, 0, 0))
-input_hint_text = font_hint.render("Enter amount of shoots", True, (0, 0, 0))
-normal_text = font.render("Normalized split", True, (255, 255, 255))
-random_text = font.render("Randomized split", True, (255, 255, 255))
+start_text = font.render            ("Start", True, (255, 255, 255))
+reset_text = font.render            ("Reset", True, (255, 255, 255))
+scoreboard_text = font.render       ("Scoreboard", True, (255, 255, 255))
+wind_up_text = font.render          ("Wind Up", True, (255, 255, 255))
+wind_down_text = font.render        ("Wind Down", True, (255, 255, 255))
+physics_up_text = font.render       ("Physics Up", True, (255, 255, 255))
+physics_down_text = font.render     ("Physics Down", True, (255, 255, 255))
+save_text = font.render             ("Save", True, (255, 255, 255))
+ok_text = font.render               ("OK", True, (255, 255, 255))
+cancel_text = font.render           ("Cancel", True, (255, 255, 255))
+wind_direction_text = font.render   (wind_direction, True, (0, 0, 0))
+input_hint_text = font_hint.render  ("Enter amount of shoots", True, (0, 0, 0))
+normal_text = font.render           ("Normalized split", True, (255, 255, 255))
+random_text = font.render           ("Randomized split", True, (255, 255, 255))
 
 mouse_inside = True
 game_state = "game"
@@ -210,7 +210,6 @@ while running:
                     menu_input_text = menu_input_text[:-1]
                 elif len(input_text) <=9:  # Povolené max 9 znakov
                         menu_input_text += event.unicode
-                        print(menu_input_text)
 
         elif game_state == "scoreboard":
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -291,6 +290,10 @@ while running:
                 screen.blit(font.render("Enter name", True, (0, 0, 0)), (menu_input_rect.x + 5, menu_input_rect.y + 5))
             else:
                 screen.blit(font.render(menu_input_text, True, (0, 0, 0)), (menu_input_rect.x + 5, menu_input_rect.y + 5))
+
+            screen.blit(font.render("Score: " + str(sum(score_list)), True, (0, 0, 0)), (menu_rect.x + 5, menu_rect.y + 5+35))
+            screen.blit(font.render("Shoots: " + str(shoots), True, (0, 0, 0)), (menu_rect.x + 5, menu_rect.y + 5 + 65))
+            screen.blit(font.render("Average: " + str(average), True, (0, 0, 0)), (menu_rect.x + 5, menu_rect.y + 5 + 95))
         
         if simulation_run and simulation == "random" and input_text != "":
             for i in range(int(input_text)):
@@ -312,9 +315,12 @@ while running:
     elif game_state == "scoreboard":
         pygame.mouse.set_visible(True)
 
+        cursor.execute("SELECT * FROM data")
+        rows = cursor.fetchall()
+        helpers.draw_table(screen, font, rows)
+
         font = pygame.font.Font(None, 26)
         back_text = font.render("Back", True, (255, 255, 255))
-        screen.fill((255, 255, 255))
 
         pygame.draw.rect(screen, (0, 0, 0), back_button_rect)
         screen.blit(back_text, (back_button_rect.x + 20, back_button_rect.y + 5))
@@ -322,7 +328,6 @@ while running:
     shoots = len(dots)
     average = round(sum(score_list)/shoots if shoots > 0 else 0, 2)    
 
-    print(sum(score_list), shoots, average)
 
 
     pygame.display.flip()
