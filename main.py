@@ -4,6 +4,25 @@ import random
 import helpers
 import numpy as np
 import os
+import mysql.connector
+
+#DB
+conn = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="",
+    database="terc_db"
+)
+cursor = conn.cursor()
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS data (
+        ID INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(50),
+        score INT,
+        shoots INT,
+        average FLOAT
+    )
+""")
 
 
 SIZE_X = 850
@@ -11,7 +30,7 @@ SIZE_Y = 600
 pygame.init()
 
 screen = pygame.display.set_mode((SIZE_X, SIZE_Y))
-pygame.display.set_caption('Pygame Physics Simulation')
+pygame.display.set_caption('Terc')
 
 cross_img = pygame.image.load('cross.png')
 terc_img = pygame.image.load('terc.png')
@@ -25,12 +44,17 @@ wind_direction_y = random.choice([-1, 0, 1])
 wind_direction = helpers.define_wind_direction(wind_direction_x, wind_direction_y)
 
 dots = []
+score_list = []
+shoots = 0
+average = 0
 
 button_width = 150
 button_height = 40
 button_margin = 10
 center_x = SIZE_X // 2
 center_y = SIZE_Y // 2
+terc_center_x = 296
+terc_center_y = 305
 
 menu_width = 300
 menu_height = 150
@@ -40,6 +64,10 @@ input_active = False
 
 menu_input_text = ""
 menu_input_active = False
+
+radii = [35,78,121,168,211,256]
+points = [10,9,8,7,6,5]
+
 
 start_button_rect =        pygame.Rect(SIZE_X - button_width - 20, 50, button_width, button_height)
 reset_button_rect =        pygame.Rect(SIZE_X - button_width - 20, 50 + button_height + button_margin, button_width, button_height)
@@ -62,20 +90,20 @@ font = pygame.font.Font(None, 26)
 font_input = pygame.font.Font(None, 36)
 font_hint = pygame.font.Font(None, 16)
 
-start_text = font.render("Start", True, (255, 255, 255))
-reset_text = font.render("Reset", True, (255, 255, 255))
-scoreboard_text = font.render("Scoreboard", True, (255, 255, 255))
-wind_up_text = font.render("Wind Up", True, (255, 255, 255))
-wind_down_text = font.render("Wind Down", True, (255, 255, 255))
-physics_up_text = font.render("Physics Up", True, (255, 255, 255))
-physics_down_text = font.render("Physics Down", True, (255, 255, 255))
-save_text = font.render("Save", True, (255, 255, 255))
-ok_text = font.render("OK", True, (255, 255, 255))
-cancel_text = font.render("Cancel", True, (255, 255, 255))
-wind_direction_text = font.render(wind_direction, True, (0, 0, 0))
-input_hint_text = font_hint.render("Enter amount of shoots", True, (0, 0, 0))
-normal_text = font.render("Normalized split", True, (255, 255, 255))
-random_text = font.render("Randomized split", True, (255, 255, 255))
+start_text = font.render            ("Start", True, (255, 255, 255))
+reset_text = font.render            ("Reset", True, (255, 255, 255))
+scoreboard_text = font.render       ("Scoreboard", True, (255, 255, 255))
+wind_up_text = font.render          ("Wind Up", True, (255, 255, 255))
+wind_down_text = font.render        ("Wind Down", True, (255, 255, 255))
+physics_up_text = font.render       ("Physics Up", True, (255, 255, 255))
+physics_down_text = font.render     ("Physics Down", True, (255, 255, 255))
+save_text = font.render             ("Save", True, (255, 255, 255))
+ok_text = font.render               ("OK", True, (255, 255, 255))
+cancel_text = font.render           ("Cancel", True, (255, 255, 255))
+wind_direction_text = font.render   (wind_direction, True, (0, 0, 0))
+input_hint_text = font_hint.render  ("Enter amount of shoots", True, (0, 0, 0))
+normal_text = font.render           ("Normalized split", True, (255, 255, 255))
+random_text = font.render           ("Randomized split", True, (255, 255, 255))
 
 mouse_inside = True
 game_state = "game"
@@ -105,8 +133,9 @@ while running:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if empty_screen:
                     if mouse_x < 600:
-                        dots.append((physicsed_x + wind_offset_x, physicsed_y + wind_offset_y))
-
+                        shoot = (physicsed_x + wind_offset_x, physicsed_y + wind_offset_y)
+                        dots.append(shoot)
+                        score_list.append(helpers.get_score(shoot,radii,points,terc_center_x,terc_center_y))
                     if start_button_rect.collidepoint(mouse_x, mouse_y): # Start button
                         simulation_menu = True
                         empty_screen = False
@@ -116,6 +145,7 @@ while running:
                         wind_strength = 0
                         physics_offset_strength = 0
                         input_text = ""
+                        score_list = []
                     elif scoreboard_button_rect.collidepoint(mouse_x, mouse_y): # Scoreboard button
                         game_state = "scoreboard"
                     elif wind_up_button_rect.collidepoint(mouse_x, mouse_y): # Wind up button
@@ -160,12 +190,9 @@ while running:
                     elif menu_input_rect.collidepoint(mouse_x, mouse_y):
                         menu_input_active = True
                     elif menu_confirm_rect.collidepoint(mouse_x, mouse_y) and menu_input_text != "":
-                        if os.path.isfile(os.path.join(os.path.dirname(__file__), 'save.txt')):
-                            with open(file_path, 'a') as file:
-                                file.write(menu_input_text + "\n")
-                        else:
-                            with open(file_path, 'w') as file:
-                                file.write(menu_input_text + "\n")
+                        cursor.execute("INSERT INTO data (name, score, shoots, average) VALUES (%s, %s, %s, %s)", 
+                        (menu_input_text, sum(score_list), shoots, average))
+                        conn.commit()
                         save_menu = False
                         empty_screen = True
                         menu_input_text = ""
@@ -183,7 +210,6 @@ while running:
                     menu_input_text = menu_input_text[:-1]
                 elif len(input_text) <=9:  # Povolené max 9 znakov
                         menu_input_text += event.unicode
-                        print(menu_input_text)
 
         elif game_state == "scoreboard":
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -224,17 +250,17 @@ while running:
         pygame.draw.rect(screen, (0, 0, 0) if input_active else (200,200,200), input_box, 2)  # Input box
 
         # Draw texts
-        screen.blit(start_text,        (start_button_rect.x + 20, start_button_rect.y + 5))
-        screen.blit(reset_text,        (reset_button_rect.x + 20, reset_button_rect.y + 5))
-        screen.blit(scoreboard_text,   (scoreboard_button_rect.x + 20, scoreboard_button_rect.y + 5))
-        screen.blit(wind_up_text,      (wind_up_button_rect.x + 20, wind_up_button_rect.y + 5))
-        screen.blit(wind_down_text,    (wind_down_button_rect.x + 20, wind_down_button_rect.y + 5))
-        screen.blit(physics_up_text,   (physics_up_button_rect.x + 20, physics_up_button_rect.y + 5))
-        screen.blit(physics_down_text, (physics_down_button_rect.x + 20, physics_down_button_rect.y + 5))
-        screen.blit(font_input.render  (input_text, True, (0, 0, 0)), (input_box.x + 5, input_box.y + 5))
-        screen.blit(font.render        (str(wind_strength), True, (0, 0, 0)), (wind_up_button_rect.x -20, wind_up_button_rect.y + 5))
-        screen.blit(font.render        (str(physics_offset_strength), True, (0, 0, 0)), (physics_up_button_rect.x -20, physics_up_button_rect.y + 5))
-        screen.blit(save_text, (save_button_rect.x + 20, save_button_rect.y + 5))
+        screen.blit(start_text,          (start_button_rect.x + 20, start_button_rect.y + 5))
+        screen.blit(reset_text,          (reset_button_rect.x + 20, reset_button_rect.y + 5))
+        screen.blit(scoreboard_text,     (scoreboard_button_rect.x + 20, scoreboard_button_rect.y + 5))
+        screen.blit(wind_up_text,        (wind_up_button_rect.x + 20, wind_up_button_rect.y + 5))
+        screen.blit(wind_down_text,      (wind_down_button_rect.x + 20, wind_down_button_rect.y + 5))
+        screen.blit(physics_up_text,     (physics_up_button_rect.x + 20, physics_up_button_rect.y + 5))
+        screen.blit(physics_down_text,   (physics_down_button_rect.x + 20, physics_down_button_rect.y + 5))
+        screen.blit(font_input.render    (input_text, True, (0, 0, 0)), (input_box.x + 5, input_box.y + 5))
+        screen.blit(font.render          (str(wind_strength), True, (0, 0, 0)), (wind_up_button_rect.x -20, wind_up_button_rect.y + 5))
+        screen.blit(font.render          (str(physics_offset_strength), True, (0, 0, 0)), (physics_up_button_rect.x -20, physics_up_button_rect.y + 5))
+        screen.blit(save_text,           (save_button_rect.x + 20, save_button_rect.y + 5))
         screen.blit(wind_direction_text, (wind_up_button_rect.x -55, wind_up_button_rect.y + 5))
         if not input_active and input_text == "":
             screen.blit(input_hint_text, (input_box.x + 10, input_box.y + 15))
@@ -264,6 +290,10 @@ while running:
                 screen.blit(font.render("Enter name", True, (0, 0, 0)), (menu_input_rect.x + 5, menu_input_rect.y + 5))
             else:
                 screen.blit(font.render(menu_input_text, True, (0, 0, 0)), (menu_input_rect.x + 5, menu_input_rect.y + 5))
+
+            screen.blit(font.render("Score: " + str(sum(score_list)), True, (0, 0, 0)), (menu_rect.x + 5, menu_rect.y + 5+35))
+            screen.blit(font.render("Shoots: " + str(shoots), True, (0, 0, 0)), (menu_rect.x + 5, menu_rect.y + 5 + 65))
+            screen.blit(font.render("Average: " + str(average), True, (0, 0, 0)), (menu_rect.x + 5, menu_rect.y + 5 + 95))
         
         if simulation_run and simulation == "random" and input_text != "":
             for i in range(int(input_text)):
@@ -280,20 +310,28 @@ while running:
                 dots.append((sim_pos_x, sim_pos_y))
             simulation_run = False
             input_text = ""
-
+    
 
     elif game_state == "scoreboard":
         pygame.mouse.set_visible(True)
 
+        cursor.execute("SELECT * FROM data")
+        rows = cursor.fetchall()
+        helpers.draw_table(screen, font, rows)
+
         font = pygame.font.Font(None, 26)
         back_text = font.render("Back", True, (255, 255, 255))
-        screen.fill((255, 255, 255))
 
         pygame.draw.rect(screen, (0, 0, 0), back_button_rect)
         screen.blit(back_text, (back_button_rect.x + 20, back_button_rect.y + 5))
-        
+
+    shoots = len(dots)
+    average = round(sum(score_list)/shoots if shoots > 0 else 0, 2)    
+
+
 
     pygame.display.flip()
-
+conn.commit()
+conn.close()
 pygame.quit()
 sys.exit()
